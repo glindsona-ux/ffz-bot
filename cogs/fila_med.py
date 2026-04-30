@@ -1,22 +1,33 @@
 import discord
 from discord.ext import commands
 from discord.ui import View, Button, Modal, TextInput
-from config import COR_FFZ, URL_THUMBNAIL_FFZ, ID_CANAL_FILA_MED, ID_CANAL_PIX_MED, NOME_CARGO_MED, NOME_CARGO_STAFF
+from config import COR_FFZ, URL_THUMBNAIL_FFZ, ID_CANAL_FILA_MED, NOME_CARGO_MED, NOME_CARGO_STAFF
 from utils import carregar_json, salvar_json
 
+# ID DO CANAL DO PIX QUE TU MANDOU
+ID_CANAL_PIX_MED = 1465329776649572385
+
 class ModalConfiPix(Modal, title="Configurar PIX"):
-    nome = TextInput(label="Nome Completo", placeholder="Ex: João da Silva", max_length=50)
+    nome = TextInput(label="Nome e Sobrenome", placeholder="Ex: João da Silva", max_length=50)
+    banco = TextInput(label="Banco", placeholder="Ex: Nubank, Itaú, Caixa", max_length=30)
     pix = TextInput(label="Chave PIX", placeholder="CPF, Email, Telefone ou Aleatória", max_length=100)
 
     async def on_submit(self, interaction: discord.Interaction):
         pix_data = carregar_json("pix_mediadores.json")
-        pix_data[str(interaction.user.id)] = {"nome": self.nome.value, "chave": self.pix.value}
+        pix_data[str(interaction.user.id)] = {
+            "nome": self.nome.value,
+            "banco": self.banco.value,
+            "chave": self.pix.value
+        }
         salvar_json("pix_mediadores.json", pix_data)
-        await interaction.response.send_message(f"✅ PIX configurado!\n**Nome:** {self.nome.value}\n**Chave:** `{self.pix.value}`", ephemeral=True)
+        await interaction.response.send_message(
+            f"✅ PIX configurado!\n**Nome:** {self.nome.value}\n**Banco:** {self.banco.value}\n**Chave:** `{self.pix.value}`",
+            ephemeral=True
+        )
 
 class ViewMediadores(View):
     def __init__(self):
-        super().__init__(timeout=None)
+        super().__init__(timeout=None) # BOTÃO IMORTAL
 
     @discord.ui.button(label="Entrar na Fila", style=discord.ButtonStyle.success, emoji="✅", custom_id="entrar_fila_med_ffz")
     async def entrar_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -47,7 +58,11 @@ class ViewMediadores(View):
         await atualizar_embed_fila_med(interaction.guild)
         await interaction.response.send_message("❌ Tu saiu da fila de mediadores!", ephemeral=True)
 
-    @discord.ui.button(label="Cadastrar PIX", style=discord.ButtonStyle.primary, emoji="💰", custom_id="cad_pix_med_ffz")
+class ViewPainelPix(View):
+    def __init__(self):
+        super().__init__(timeout=None) # BOTÃO IMORTAL
+
+    @discord.ui.button(label="Cadastrar meu PIX", style=discord.ButtonStyle.primary, emoji="💰", custom_id="cad_pix_med_ffz")
     async def pix_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not discord.utils.get(interaction.guild.roles, name=NOME_CARGO_MED) in interaction.user.roles:
             return await interaction.response.send_message("Só MEDIADOR pode cadastrar PIX.", ephemeral=True)
@@ -79,7 +94,8 @@ async def atualizar_embed_fila_med(guild):
 class FilaMed(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.add_view(ViewMediadores()) # REGISTRA BOTÃO IMORTAL
+        self.bot.add_view(ViewMediadores()) # REGISTRA VIEW IMORTAL DA FILA
+        self.bot.add_view(ViewPainelPix()) # REGISTRA VIEW IMORTAL DO PIX
 
     @commands.command()
     @commands.has_role(NOME_CARGO_STAFF)
@@ -87,7 +103,23 @@ class FilaMed(commands.Cog):
         await atualizar_embed_fila_med(ctx.guild)
         await ctx.send("Painel de mediadores postado!", delete_after=5)
 
-    # APAGUEI O!confi_pix BUGADO
+    @commands.command()
+    @commands.has_role(NOME_CARGO_STAFF)
+    async def painel_pix(self, ctx):
+        """Posta o painel com botão pra cadastrar PIX"""
+        canal = ctx.guild.get_channel(ID_CANAL_PIX_MED)
+        if not canal:
+            return await ctx.send("❌ Canal do PIX não encontrado. Confere o ID_CANAL_PIX_MED.", ephemeral=True)
+
+        embed = discord.Embed(
+            title="💰 CADASTRO DE PIX - MEDIADORES",
+            description="**ATENÇÃO MEDIADORES**\n\nClique no botão abaixo pra cadastrar tua chave PIX.\nEla será usada pra receber pagamentos das mediações.\n\n**Dados solicitados:** Nome, Banco e Chave PIX",
+            color=COR_FFZ
+        )
+        embed.set_thumbnail(url=URL_THUMBNAIL_FFZ)
+        embed.set_footer(text="FFZ E-SPORTS • Dados salvos com segurança")
+        await canal.send(embed=embed, view=ViewPainelPix())
+        await ctx.send(f"✅ Painel do PIX postado em {canal.mention}!", delete_after=5)
 
     @commands.command()
     @commands.has_role(NOME_CARGO_STAFF)
@@ -100,6 +132,7 @@ class FilaMed(commands.Cog):
 
         embed = discord.Embed(title="💰 PIX DO MEDIADOR", color=COR_FFZ)
         embed.add_field(name="Nome", value=dados["nome"], inline=False)
+        embed.add_field(name="Banco", value=dados.get("banco", "Não informado"), inline=False)
         embed.add_field(name="Chave PIX", value=f"`{dados['chave']}`", inline=False)
         embed.set_footer(text="FFZ E-SPORTS")
         try:
@@ -109,4 +142,4 @@ class FilaMed(commands.Cog):
             await ctx.send(embed=embed, ephemeral=True)
 
 async def setup(bot):
-    await bot.add_cog(FilaMed(bot)) 
+    await bot.add_cog(FilaMed(bot))
