@@ -25,6 +25,25 @@ async def on_ready():
                 print(f'Cog carregado: {filename}')
             except Exception as e:
                 print(f'Erro ao carregar {filename}: {e}')
+    
+    # BOTÕES IMORTAIS - REGISTRA AS VIEWS
+    from cogs.ranking import ViewPainelRank
+    from cogs.tickets import ViewPainelTicket
+    from cogs.fila_med import ViewFilaMed
+    from cogs.filas import ViewFilaX1
+    from cogs.partidas import ViewRegistrarResultado
+    
+    bot.add_view(ViewPainelRank())
+    bot.add_view(ViewPainelTicket())
+    bot.add_view(ViewFilaMed())
+    bot.add_view(ViewRegistrarResultado())
+    
+    # Pra cada modalidade da fila
+    from config import IDS_CANAIS_MODALIDADES
+    for modalidade in IDS_CANAIS_MODALIDADES.keys():
+        bot.add_view(ViewFilaX1(modalidade))
+    
+    print("✅ Botões imortais registrados!")
 
 @bot.command()
 @commands.is_owner()
