@@ -12,7 +12,7 @@ class ModalConfiPix(Modal, title="Configurar PIX"):
         pix_data = carregar_json("pix_mediadores.json")
         pix_data[str(interaction.user.id)] = {"nome": self.nome.value, "chave": self.pix.value}
         salvar_json("pix_mediadores.json", pix_data)
-        await interaction.response.send_message(f"✅ PIX configurado!\n**Nome:** {self.nome.value}\n**Chave:** {self.pix.value}", ephemeral=True)
+        await interaction.response.send_message(f"✅ PIX configurado!\n**Nome:** {self.nome.value}\n**Chave:** `{self.pix.value}`", ephemeral=True)
 
 class ViewMediadores(View):
     def __init__(self):
@@ -47,6 +47,12 @@ class ViewMediadores(View):
         await atualizar_embed_fila_med(interaction.guild)
         await interaction.response.send_message("❌ Tu saiu da fila de mediadores!", ephemeral=True)
 
+    @discord.ui.button(label="Cadastrar PIX", style=discord.ButtonStyle.primary, emoji="💰", custom_id="cad_pix_med_ffz")
+    async def pix_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not discord.utils.get(interaction.guild.roles, name=NOME_CARGO_MED) in interaction.user.roles:
+            return await interaction.response.send_message("Só MEDIADOR pode cadastrar PIX.", ephemeral=True)
+        await interaction.response.send_modal(ModalConfiPix())
+
 async def atualizar_embed_fila_med(guild):
     fila = carregar_json("fila_mediadores.json")
     canal = guild.get_channel(ID_CANAL_FILA_MED)
@@ -73,6 +79,7 @@ async def atualizar_embed_fila_med(guild):
 class FilaMed(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.bot.add_view(ViewMediadores()) # REGISTRA BOTÃO IMORTAL
 
     @commands.command()
     @commands.has_role(NOME_CARGO_STAFF)
@@ -80,10 +87,7 @@ class FilaMed(commands.Cog):
         await atualizar_embed_fila_med(ctx.guild)
         await ctx.send("Painel de mediadores postado!", delete_after=5)
 
-    @commands.command()
-    @commands.has_role(NOME_CARGO_MED)
-    async def confi_pix(self, ctx):
-        await ctx.send_modal(ModalConfiPix())
+    # APAGUEI O!confi_pix BUGADO
 
     @commands.command()
     @commands.has_role(NOME_CARGO_STAFF)
@@ -98,7 +102,11 @@ class FilaMed(commands.Cog):
         embed.add_field(name="Nome", value=dados["nome"], inline=False)
         embed.add_field(name="Chave PIX", value=f"`{dados['chave']}`", inline=False)
         embed.set_footer(text="FFZ E-SPORTS")
-        await ctx.send(embed=embed, ephemeral=True)
+        try:
+            await ctx.author.send(embed=embed)
+            await ctx.send("✅ Te mandei o PIX na DM.", delete_after=5)
+        except:
+            await ctx.send(embed=embed, ephemeral=True)
 
 async def setup(bot):
-    await bot.add_cog(FilaMed(bot))
+    await bot.add_cog(FilaMed(bot)) 
